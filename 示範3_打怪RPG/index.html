@@ -210,6 +210,21 @@
       color: #35261c;
     }
 
+    .question-image {
+      display: none;
+      width: 100%;
+      max-height: min(54vh, 620px);
+      margin-top: 14px;
+      border: 3px solid rgba(85, 54, 28, 0.2);
+      border-radius: 8px;
+      background: #fff;
+      object-fit: contain;
+    }
+
+    .question-image.show {
+      display: block;
+    }
+
     .answers {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -455,7 +470,7 @@
     <section class="loading" id="loadingScreen">
       <div>
         <h2>題庫載入中...</h2>
-        <p>正在讀取 Google Sheets CSV</p>
+        <p>正在讀取本機解析卷圖片與答案</p>
       </div>
     </section>
 
@@ -483,6 +498,7 @@
       <div class="question-box">
         <div class="stage" id="stageText">第 1 關</div>
         <p class="question" id="questionText">題目</p>
+        <img class="question-image" id="questionImage" alt="會考國文解析卷題目頁">
       </div>
 
       <div class="answers" id="answers"></div>
@@ -544,11 +560,7 @@
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQjKai_A7wVkd6K7jZNd4BBry8MWOYstDhlsIJZdTZFrOeciOi7xKv_3_KjEB-XsmNJWgL7QrFhpzM_/pub?output=csv";
 
     const FALLBACK_QUESTIONS = [
-      { question: "「亡羊補牢」的意思最接近哪一項？", correct: "犯錯後及時補救", wrong: ["形容速度很快", "表示完全沒有希望", "比喻人多勢眾"] },
-      { question: "臺灣位於哪一個大洋的西側？", correct: "太平洋", wrong: ["大西洋", "印度洋", "北冰洋"] },
-      { question: "下列哪一個朝代以「貞觀之治」聞名？", correct: "唐", wrong: ["秦", "宋", "清"] },
-      { question: "「三角形內角和」是多少度？", correct: "180 度", wrong: ["90 度", "270 度", "360 度"] },
-      { question: "下列哪一個是形容詞？", correct: "美麗", wrong: ["奔跑", "桌子", "因為"] }
+      ...buildExamQuestions()
     ];
 
     const MONSTERS = [
@@ -581,6 +593,7 @@
     const monsterHpText = document.querySelector("#monsterHpText");
     const stageText = document.querySelector("#stageText");
     const questionText = document.querySelector("#questionText");
+    const questionImage = document.querySelector("#questionImage");
     const answers = document.querySelector("#answers");
     const battleMessage = document.querySelector("#battleMessage");
     const shopMessage = document.querySelector("#shopMessage");
@@ -619,17 +632,91 @@
 
     async function loadQuestions() {
       showOnly("loading");
-      try {
-        const response = await fetch(CSV_URL, { cache: "no-store" });
-        if (!response.ok) throw new Error("CSV 載入失敗");
-        const csvText = await response.text();
-        questions = parseQuestions(csvText);
-        if (questions.length === 0) throw new Error("CSV 沒有可用題目");
-      } catch (error) {
-        questions = FALLBACK_QUESTIONS;
-        console.warn(error);
+      const retryMessages = [
+        "載入 Google Sheets 題庫中…",
+        "網路不穩，第 2 次重試…",
+        "網路不穩，第 3 次重試…"
+      ];
+
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        setLoadingText(retryMessages[attempt - 1], "正在讀取你提供的 Google Sheets CSV");
+
+        try {
+          const csvText = await fetchCsvWithRetry(CSV_URL);
+          questions = parseQuestions(csvText);
+          if (questions.length === 0) throw new Error("CSV 沒有可用題目");
+          startGame();
+          return;
+        } catch (error) {
+          console.warn(`題庫載入第 ${attempt} 次失敗`, error);
+
+          if (attempt < 3) {
+            await delay(attempt * 1000);
+          }
+        }
       }
+
+      setLoadingText("線上題庫載入失敗，改用本機備援題庫", "正在讀取本機解析卷圖片與答案");
+      questions = FALLBACK_QUESTIONS;
+      await delay(1200);
       startGame();
+    }
+
+    function buildExamQuestions() {
+      const answers = "BADADCDCCDDBAABDABDADBCBABDBADCCABCCCACBCB".split("");
+      return answers.map((answer, index) => {
+        const number = index + 1;
+        const page = examPageForQuestion(number);
+        const choices = ["A", "B", "C", "D"];
+        return {
+          question: `115 年會考國文第 ${number} 題：請閱讀下方解析卷頁面，選出正確答案。`,
+          correct: answer,
+          wrong: choices.filter((choice) => choice !== answer),
+          image: `exam_pages/page-${String(page).padStart(2, "0")}.png`,
+          id: number
+        };
+      });
+    }
+
+    function examPageForQuestion(number) {
+      if (number <= 5) return 1;
+      if (number <= 9) return 2;
+      if (number <= 13) return 3;
+      if (number <= 17) return 4;
+      if (number <= 21) return 5;
+      if (number <= 24) return 6;
+      if (number <= 27) return 7;
+      if (number <= 31) return 8;
+      if (number <= 34) return 9;
+      if (number <= 38) return 10;
+      return 11;
+    }
+
+    async function fetchCsvWithRetry(url) {
+      const response = await fetch(withCacheBuster(url), { cache: "no-store" });
+      if (!response.ok) throw new Error(`CSV 載入失敗：HTTP ${response.status}`);
+
+      const csvText = await response.text();
+      if (csvText.trimStart().startsWith("<")) {
+        throw new Error("收到 HTML 錯誤頁，不是 CSV");
+      }
+
+      return csvText;
+    }
+
+    function withCacheBuster(url) {
+      return `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+    }
+
+    function setLoadingText(text, detailText = "正在讀取本機解析卷圖片與答案") {
+      const title = loadingScreen.querySelector("h2");
+      const detail = loadingScreen.querySelector("p");
+      title.textContent = text;
+      detail.textContent = detailText;
+    }
+
+    function delay(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     function startGame() {
@@ -677,6 +764,13 @@
       }
 
       questionText.textContent = currentQuestion.question;
+      if (currentQuestion.image) {
+        questionImage.src = currentQuestion.image;
+        questionImage.classList.add("show");
+      } else {
+        questionImage.removeAttribute("src");
+        questionImage.classList.remove("show");
+      }
       answers.innerHTML = "";
       shuffle(options).forEach((option, index) => {
         const button = document.createElement("button");
