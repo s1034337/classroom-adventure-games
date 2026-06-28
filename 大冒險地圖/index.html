@@ -348,25 +348,46 @@
 
     .ending-screen {
       display: none;
-      min-height: min(78vh, 720px);
-      border-radius: 8px;
-      overflow: hidden;
+      min-height: min(80vh, 760px);
+      place-items: center;
       position: relative;
-      background: #1c1510;
-      cursor: pointer;
-      box-shadow: inset 0 0 0 3px rgba(255, 230, 160, 0.2);
+      padding: clamp(14px, 3vw, 28px);
     }
 
     .ending-screen.show {
-      display: block;
+      display: grid;
+    }
+
+    .ending-panel {
+      width: min(940px, 100%);
+      padding: clamp(16px, 3vw, 28px);
+      border: 3px solid rgba(100, 63, 28, 0.42);
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at 18% 10%, rgba(255, 255, 255, 0.58), transparent 34%),
+        linear-gradient(135deg, rgba(255, 249, 226, 0.92), rgba(221, 196, 139, 0.84)),
+        #f2dfad;
+      box-shadow:
+        0 22px 70px rgba(35, 21, 9, 0.36),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+      text-align: center;
+      transition: opacity 520ms ease, transform 520ms ease, filter 520ms ease;
+    }
+
+    .ending-panel.fade-out {
+      opacity: 0;
+      transform: translateY(12px) scale(0.985);
+      filter: blur(2px);
     }
 
     .ending-image {
       width: 100%;
-      height: min(62vh, 620px);
-      object-fit: contain;
+      height: min(48vh, 520px);
+      object-fit: cover;
       display: block;
-      background: #120e0b;
+      border: 2px solid rgba(86, 57, 27, 0.28);
+      border-radius: 8px;
+      background: #f6eac9;
       transition: opacity 220ms ease;
       transform-origin: center;
     }
@@ -376,19 +397,16 @@
     }
 
     .ending-caption {
-      padding: 18px clamp(16px, 3vw, 30px) 20px;
-      background:
-        linear-gradient(180deg, rgba(30, 20, 12, 0.86), rgba(30, 20, 12, 0.96)),
-        #27190f;
-      color: #fff4d2;
-      text-align: center;
+      padding: 16px 0 0;
+      color: #352213;
     }
 
     .ending-title {
-      margin: 0 0 8px;
-      font-size: clamp(1.45rem, 4vw, 2.4rem);
-      color: #ffd977;
+      margin: 0 0 14px;
+      font-size: clamp(1.7rem, 4.6vw, 3rem);
+      color: #4f2614;
       letter-spacing: 0;
+      text-shadow: 0 2px 0 rgba(255, 245, 210, 0.72);
     }
 
     .ending-text {
@@ -399,11 +417,22 @@
       font-weight: 900;
     }
 
-    .ending-hint {
-      margin-top: 10px;
-      color: rgba(255, 244, 210, 0.7);
-      font-size: 0.92rem;
+    .ending-continue {
+      margin-top: 16px;
+      min-width: 136px;
+      border: 0;
+      border-radius: 8px;
+      padding: 12px 18px;
+      background: linear-gradient(180deg, #784324, #4d2815);
+      color: #fff2cf;
+      cursor: pointer;
+      font: inherit;
       font-weight: 900;
+      box-shadow: 0 10px 22px rgba(75, 38, 16, 0.25);
+    }
+
+    .ending-continue:hover {
+      transform: translateY(-1px);
     }
 
     .complete-screen {
@@ -503,11 +532,13 @@
       </div>
 
       <div class="ending-screen" id="endingScreen" aria-label="結局劇情">
-        <img class="ending-image" id="endingImage" src="../ending_scene_1.png" alt="結局劇情圖" />
-        <div class="ending-caption">
-          <h2 class="ending-title" id="endingTitle">三印歸位</h2>
-          <p class="ending-text" id="endingText">三枚印記靜靜歸位，像三句被時間保存下來的答案。</p>
-          <div class="ending-hint" id="endingHint">點擊任意處繼續</div>
+        <div class="ending-panel" id="endingPanel">
+          <h2 class="ending-title" id="endingTitle">墨染山河，千秋入卷</h2>
+          <img class="ending-image" id="endingImage" src="story-cutscene-1.png" alt="結局劇情圖" />
+          <div class="ending-caption">
+            <p class="ending-text" id="endingText">當三道聖印歸位，沉封萬載的終焉之門在低鳴中緩緩開啟，流瀉出千百年的墨香與微光……</p>
+            <button class="ending-continue" id="endingContinue" type="button">繼續</button>
+          </div>
         </div>
       </div>
     </div>
@@ -551,35 +582,33 @@
     const gatePuzzle = document.querySelector("#gatePuzzle");
     const completeScreen = document.querySelector("#completeScreen");
     const endingScreen = document.querySelector("#endingScreen");
+    const endingPanel = document.querySelector("#endingPanel");
     const endingImage = document.querySelector("#endingImage");
     const endingTitle = document.querySelector("#endingTitle");
     const endingText = document.querySelector("#endingText");
-    const endingHint = document.querySelector("#endingHint");
+    const endingContinue = document.querySelector("#endingContinue");
     const timeText = document.querySelector("#timeText");
     const restartAdventure = document.querySelector("#restartAdventure");
     const stamps = document.querySelector("#stamps");
 
     const placed = new Set();
+    const ENDING_TITLE = "墨染山河，千秋入卷";
     const ENDING_SCENES = [
       {
-        image: "../ending_scene_1.png",
-        title: "三印歸位",
-        text: "三枚印記靜靜歸位，像三句被時間保存下來的答案。"
+        image: "story-cutscene-1.png",
+        text: "當三道聖印歸位，沉封萬載的終焉之門在低鳴中緩緩開啟，流瀉出千百年的墨香與微光……"
       },
       {
-        image: "../ending_scene_2.png",
-        title: "地圖甦醒",
-        text: "走過的路沒有消失，它們在紙上變成紋理，也在心裡留下方向。"
+        image: "story-cutscene-2.png",
+        text: "你邁入大門，沒有黃金，亦無王座。唯有一卷無字天書在虛空中款款展開，靜靜等待著寫書人。"
       },
       {
-        image: "../ending_scene_3.png",
-        title: "門後微光",
-        text: "真正的門，從來不是擋住人的牆；它只是等你準備好，再把世界交還給你。"
+        image: "story-cutscene-3.png",
+        text: "過往的歷史烽火、落筆的紅塵字句、以及荒野中的浴血鏖戰，在這一刻，皆化為宣紙上的深淺墨色，款款落款。"
       },
       {
-        image: "../ending_scene_4.png",
-        title: "新的空白",
-        text: "今日寫下的答案，明日會變成提問。冒險完成，而旅程仍在紙外延伸。"
+        image: "story-cutscene-4.png",
+        text: "墨痕漸乾，乾坤重歸於靜。而你的足跡，已成這萬卷書中，最溫柔的一筆。願此去，山高水長。"
       }
     ];
     let dragState = null;
@@ -600,7 +629,7 @@
       clearProgress.addEventListener("click", clearProgressOnly);
       closeGate.addEventListener("click", () => gateModal.classList.remove("show"));
       restartAdventure.addEventListener("click", restartAll);
-      endingScreen.addEventListener("click", nextEndingScene);
+      endingContinue.addEventListener("click", nextEndingScene);
 
       document.querySelector(".hotspot.dynasty").addEventListener("click", () => goLevel("dynasty"));
       document.querySelector(".hotspot.idiom").addEventListener("click", () => goLevel("idiom"));
@@ -767,6 +796,7 @@
       gatePuzzle.style.display = "none";
       completeScreen.classList.remove("show");
       endingIndex = 0;
+      endingPanel.classList.remove("fade-out");
       renderEndingScene();
       endingScreen.classList.add("show");
     }
@@ -775,14 +805,16 @@
       const scene = ENDING_SCENES[endingIndex];
       endingImage.classList.remove("playing");
       endingImage.style.opacity = "0";
+      endingContinue.disabled = true;
       setTimeout(() => {
         endingImage.src = scene.image;
-        endingTitle.textContent = scene.title;
+        endingTitle.textContent = ENDING_TITLE;
         endingText.textContent = scene.text;
-        endingHint.textContent = endingIndex === ENDING_SCENES.length - 1 ? "點擊後顯示冒險完成" : "點擊任意處繼續";
+        endingContinue.textContent = endingIndex === ENDING_SCENES.length - 1 ? "顯示結算" : "繼續";
         void endingImage.offsetWidth;
         endingImage.classList.add("playing");
         endingImage.style.opacity = "1";
+        endingContinue.disabled = false;
       }, 120);
     }
 
@@ -796,13 +828,17 @@
     }
 
     function showComplete() {
-      endingScreen.classList.remove("show");
-      completeScreen.classList.add("show");
-      const start = Number(localStorage.getItem("adventure_start") || Date.now());
-      const seconds = Math.max(0, Math.floor((Date.now() - start) / 1000));
-      const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
-      const ss = String(seconds % 60).padStart(2, "0");
-      timeText.textContent = `總冒險時長：${mm} 分 ${ss} 秒`;
+      endingPanel.classList.add("fade-out");
+      setTimeout(() => {
+        endingScreen.classList.remove("show");
+        endingPanel.classList.remove("fade-out");
+        completeScreen.classList.add("show");
+        const start = Number(localStorage.getItem("adventure_start") || Date.now());
+        const seconds = Math.max(0, Math.floor((Date.now() - start) / 1000));
+        const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
+        const ss = String(seconds % 60).padStart(2, "0");
+        timeText.textContent = `總冒險時長：${mm} 分 ${ss} 秒`;
+      }, 540);
     }
 
     function getOwnedLevels() {
