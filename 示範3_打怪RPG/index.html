@@ -991,12 +991,20 @@
       const rows = parseCsv(csvText).filter((row) => row.some((cell) => cell.trim()));
       const dataRows = rows.slice(1);
       return dataRows.map((row, index) => {
+        const number = index + 1;
         const question = (row[0] || "").trim();
         const correct = (row[1] || "").trim();
         const wrong = [row[2], row[3], row[4]]
           .map((cell) => (cell || "").trim())
           .filter((cell) => cell && cell !== "空");
-        return { question, correct, wrong, id: index };
+        const page = examPageForQuestion(number);
+        return {
+          question,
+          correct,
+          wrong,
+          image: `exam_pages/page-${String(page).padStart(2, "0")}.png`,
+          id: number
+        };
       }).filter((item) => item.question && item.correct && item.wrong.length > 0);
     }
 
