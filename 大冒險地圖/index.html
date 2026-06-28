@@ -346,6 +346,66 @@
       font-weight: 900;
     }
 
+    .ending-screen {
+      display: none;
+      min-height: min(78vh, 720px);
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+      background: #1c1510;
+      cursor: pointer;
+      box-shadow: inset 0 0 0 3px rgba(255, 230, 160, 0.2);
+    }
+
+    .ending-screen.show {
+      display: block;
+    }
+
+    .ending-image {
+      width: 100%;
+      height: min(62vh, 620px);
+      object-fit: contain;
+      display: block;
+      background: #120e0b;
+      transition: opacity 220ms ease;
+      transform-origin: center;
+    }
+
+    .ending-image.playing {
+      animation: storyDrift 7s ease-out forwards;
+    }
+
+    .ending-caption {
+      padding: 18px clamp(16px, 3vw, 30px) 20px;
+      background:
+        linear-gradient(180deg, rgba(30, 20, 12, 0.86), rgba(30, 20, 12, 0.96)),
+        #27190f;
+      color: #fff4d2;
+      text-align: center;
+    }
+
+    .ending-title {
+      margin: 0 0 8px;
+      font-size: clamp(1.45rem, 4vw, 2.4rem);
+      color: #ffd977;
+      letter-spacing: 0;
+    }
+
+    .ending-text {
+      margin: 0 auto;
+      max-width: 760px;
+      line-height: 1.8;
+      font-size: clamp(1rem, 2.3vw, 1.25rem);
+      font-weight: 900;
+    }
+
+    .ending-hint {
+      margin-top: 10px;
+      color: rgba(255, 244, 210, 0.7);
+      font-size: 0.92rem;
+      font-weight: 900;
+    }
+
     .complete-screen {
       display: none;
       text-align: center;
@@ -374,6 +434,17 @@
         border-color: rgba(207, 75, 66, 0.9);
         background: rgba(255, 220, 214, 0.9);
         transform: translateX(4px);
+      }
+    }
+
+    @keyframes storyDrift {
+      from {
+        transform: scale(1) translateY(0);
+        filter: saturate(0.96) brightness(0.96);
+      }
+      to {
+        transform: scale(1.035) translateY(-8px);
+        filter: saturate(1.05) brightness(1.04);
       }
     }
 
@@ -430,6 +501,15 @@
         <p class="time-text" id="timeText">總冒險時長：00 分 00 秒</p>
         <button class="modal-btn" id="restartAdventure" type="button">再次冒險</button>
       </div>
+
+      <div class="ending-screen" id="endingScreen" aria-label="結局劇情">
+        <img class="ending-image" id="endingImage" src="../ending_scene_1.png" alt="結局劇情圖" />
+        <div class="ending-caption">
+          <h2 class="ending-title" id="endingTitle">三印歸位</h2>
+          <p class="ending-text" id="endingText">三枚印記靜靜歸位，像三句被時間保存下來的答案。</p>
+          <div class="ending-hint" id="endingHint">點擊任意處繼續</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -470,12 +550,40 @@
     const bagEl = document.querySelector("#bag");
     const gatePuzzle = document.querySelector("#gatePuzzle");
     const completeScreen = document.querySelector("#completeScreen");
+    const endingScreen = document.querySelector("#endingScreen");
+    const endingImage = document.querySelector("#endingImage");
+    const endingTitle = document.querySelector("#endingTitle");
+    const endingText = document.querySelector("#endingText");
+    const endingHint = document.querySelector("#endingHint");
     const timeText = document.querySelector("#timeText");
     const restartAdventure = document.querySelector("#restartAdventure");
     const stamps = document.querySelector("#stamps");
 
     const placed = new Set();
+    const ENDING_SCENES = [
+      {
+        image: "../ending_scene_1.png",
+        title: "三印歸位",
+        text: "三枚印記靜靜歸位，像三句被時間保存下來的答案。"
+      },
+      {
+        image: "../ending_scene_2.png",
+        title: "地圖甦醒",
+        text: "走過的路沒有消失，它們在紙上變成紋理，也在心裡留下方向。"
+      },
+      {
+        image: "../ending_scene_3.png",
+        title: "門後微光",
+        text: "真正的門，從來不是擋住人的牆；它只是等你準備好，再把世界交還給你。"
+      },
+      {
+        image: "../ending_scene_4.png",
+        title: "新的空白",
+        text: "今日寫下的答案，明日會變成提問。冒險完成，而旅程仍在紙外延伸。"
+      }
+    ];
     let dragState = null;
+    let endingIndex = 0;
 
     init();
 
@@ -492,6 +600,7 @@
       clearProgress.addEventListener("click", clearProgressOnly);
       closeGate.addEventListener("click", () => gateModal.classList.remove("show"));
       restartAdventure.addEventListener("click", restartAll);
+      endingScreen.addEventListener("click", nextEndingScene);
 
       document.querySelector(".hotspot.dynasty").addEventListener("click", () => goLevel("dynasty"));
       document.querySelector(".hotspot.idiom").addEventListener("click", () => goLevel("idiom"));
@@ -536,6 +645,7 @@
     function openGateModal() {
       placed.clear();
       gatePuzzle.style.display = "block";
+      endingScreen.classList.remove("show");
       completeScreen.classList.remove("show");
       gateModal.classList.add("show");
       renderGate();
@@ -635,7 +745,7 @@
         placed.add(certId);
         removeBagBadge(certId);
         if (placed.size === 3) {
-          setTimeout(showComplete, 450);
+          setTimeout(showEnding, 450);
         }
       } else {
         slot.classList.remove("wrong");
@@ -653,8 +763,40 @@
       }
     }
 
-    function showComplete() {
+    function showEnding() {
       gatePuzzle.style.display = "none";
+      completeScreen.classList.remove("show");
+      endingIndex = 0;
+      renderEndingScene();
+      endingScreen.classList.add("show");
+    }
+
+    function renderEndingScene() {
+      const scene = ENDING_SCENES[endingIndex];
+      endingImage.classList.remove("playing");
+      endingImage.style.opacity = "0";
+      setTimeout(() => {
+        endingImage.src = scene.image;
+        endingTitle.textContent = scene.title;
+        endingText.textContent = scene.text;
+        endingHint.textContent = endingIndex === ENDING_SCENES.length - 1 ? "點擊後顯示冒險完成" : "點擊任意處繼續";
+        void endingImage.offsetWidth;
+        endingImage.classList.add("playing");
+        endingImage.style.opacity = "1";
+      }, 120);
+    }
+
+    function nextEndingScene() {
+      endingIndex += 1;
+      if (endingIndex >= ENDING_SCENES.length) {
+        showComplete();
+      } else {
+        renderEndingScene();
+      }
+    }
+
+    function showComplete() {
+      endingScreen.classList.remove("show");
       completeScreen.classList.add("show");
       const start = Number(localStorage.getItem("adventure_start") || Date.now());
       const seconds = Math.max(0, Math.floor((Date.now() - start) / 1000));
